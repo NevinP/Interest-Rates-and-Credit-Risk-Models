@@ -1,0 +1,256 @@
+
+import pandas as pd
+import numpy as np
+from scipy import integrate
+from scipy.stats import norm
+
+''' Q1 '''
+
+
+'''
+        Answer in doc
+'''
+
+
+''' Q2 '''
+
+
+
+Q2setupFunct = lambda t : 0.1/((1+t)**2)
+    #create function of short rate to integrate over
+
+Q2BondVect = []
+for i in range(0,11):
+    Q2BondVect.append( np.exp(integrate.quad(Q2setupFunct, 0, i)[0]*-1))
+Q2BondVect = pd.Series(Q2BondVect)
+
+    #Create Vector of bonds starting at t=0 and maturing from t = [0,1,2,3,4,5,6,7,8,9,10]
+
+Q2Libor = Q2BondVect[1:].copy()
+for i in range(len(Q2Libor),0,-1):
+    Q2Libor[i] = (Q2BondVect[i-1]/Q2BondVect[i] - 1)
+    
+    #Calculate Libor given the ZCB derived above
+    
+print('Q2.a) The Libor rates given from the deterministic short rate model are:')
+print(Q2Libor)
+
+
+Q2ATMswapS_0 = (Q2BondVect[5]-Q2BondVect[10]) / (sum(Q2BondVect[6:]))
+
+    #Calculate ATM swap beginning at t = Tau5, and ending at t = Tau10
+    
+print('Q2.b) The ATM interest rate swap Libor rates given from the deterministic short rate model with parameters (Start date: Tau5, End date: Tau10) is:')
+print(Q2ATMswapS_0)
+
+
+
+#c
+
+Q2PartCBondVect = []
+for i in range(5,11):
+    Q2PartCBondVect.append(np.exp(integrate.quad(Q2setupFunct, 5, i)[0]*-1))
+    
+    #Create bond vector, with bonds starting from t = Tau5 and expiring at [6,7,8,9,10]
+    
+Q2PartCBondVect = pd.Series(Q2PartCBondVect)
+
+Q2PartCLiborVect = Q2PartCBondVect[1:].copy()
+for i in range(len(Q2PartCLiborVect),0,-1):
+    Q2PartCLiborVect[i] = (Q2PartCBondVect[i-1]/Q2PartCBondVect[i] - 1)
+    
+    #Obtain Libor on bond vector derived above
+    
+    
+SwaptionPayoff = []    
+for i in range(1,6):
+    SwaptionPayoff.append(      Q2PartCBondVect[i]*(Q2PartCLiborVect[i] - 0.02 ))
+    
+    #Calculate the vector of the payoffs of the resulting swap of underlying swaption
+    
+SwaptionValue = max(sum(SwaptionPayoff),0)
+    
+    #Calculate the Swaption payoff at option maturity date
+
+DiscountToTimeTau0 = np.exp(integrate.quad(Q2setupFunct, 0, 10)[0]*-1)
+DiscountToTimeTau3 = np.exp(integrate.quad(Q2setupFunct, 3, 10)[0]*-1)
+
+    #bonds to discount with
+
+
+SwaptionValueAtTau0 = SwaptionValue*DiscountToTimeTau0
+SwaptionValueAtTau3 = SwaptionValue*DiscountToTimeTau3
+
+    #Discounted Swaption payoff at t = 0 and t = 3
+
+
+print('Q2.c) Because the short rate is non-stochastic we are able to exactly compute the value of a payer Swaption based of Q2.b) with parameters (K = 0.02, t = 0 and t = 3):')
+print('t = 0: ' + SwaptionValueAtTau0.astype(str))
+print('t = 3: ' + SwaptionValueAtTau3.astype(str))
+
+    
+#Q2c reciever side of swaption
+
+AlternativeSwaptionPayoff = []  
+for i in range(1,6):
+    AlternativeSwaptionPayoff.append(      Q2PartCBondVect[i]*(0.02 - Q2PartCLiborVect[i] ))
+    
+AlternativeSwaptionValue = max(sum(AlternativeSwaptionPayoff),0)
+
+AlternativeSwaptionValueAtTau0 = AlternativeSwaptionValue * DiscountToTimeTau0
+AlternativeSwaptionValueAtTau3 = AlternativeSwaptionValue * DiscountToTimeTau3
+
+
+
+print('Q2.c) Alternatively we can calculate the receiver Swaption based of Q2.b) with parameters (K = 0.02, t = 0 and t = 3) as follows:')
+print('t = 0: ' + AlternativeSwaptionValueAtTau0.astype(str))
+print('t = 3: ' + AlternativeSwaptionValueAtTau3.astype(str))
+
+
+
+
+#d
+
+
+Q2dInitPort = 10**6
+Q2Invariance = np.exp(integrate.quad(Q2setupFunct, 0, 10)[0])
+Q2TerminalPort = Q2Invariance*Q2dInitPort
+
+print('Q2.d) If the market dynamics of interest rates move according to the Expectation hypothesis, we may apply the invariance theorem which states that any holistic bond driven \
+annualised re-investment strategy with zero outflows will be equivalent to a portfolio consisting entirely of the longest maturity bond. For our given question the value of our \
+portfolio is: $' + Q2TerminalPort.astype(str))
+    
+
+    
+    
+'''Q3'''
+
+
+
+def CouponBondValuation(Face, CouponRate, Yield, Compounding, Periods):
+    EffYield = Yield/Compounding
+    
+    return (Face/ ( (1+EffYield)**Periods) ) + ( ( Face*CouponRate / Yield ) * (1 - ( 1 / ( ( 1+EffYield )**Periods ) ) ) )
+
+    #Create bond valuation formula consistent with lecture notes
+
+
+Q3Bond1Price = CouponBondValuation(10**4,0.09,0.11,12,119)
+
+Q3Bond2Price = CouponBondValuation(10**4,0.15,0.13,12,119)
+
+    #Evaluate prics of two unique bonds, each with 119 periods (12*10 -1) as first period has passed
+
+
+Q3BondPriceDiff = Q3Bond2Price - Q3Bond1Price
+
+    #As we know the coupon rate on the 2nd bond is higher than the first, if we are to evaluate the mortgage in terms of a cash stream, we would like to buy the second bond and sell
+    #the first. As the face value of both bonds is equal, the resulting cash stream will be uniform throughout.
+    
+
+Q3PortQuant = 10**6 / Q3BondPriceDiff
+
+    #Divide the amount we would recive from the mortgage by the cost of the bond portfolio to determine the quantity of bond portfolios we may purchase with the funds recieved.
+
+Q3CouponDiff = 10**4*(0.15-0.09)/12
+
+    #Calculate the size of a coupon packet we will recieve from one bond portfolio
+
+Q3MonthlyRepayment = Q3PortQuant*Q3CouponDiff
+
+    #The loan repayment amount is equivalent to the number of bond portfolio's able to be purchased multiplied by the coupon packet size
+    
+print('Q3. The monthly repayment size is equal to: $' + str(Q3MonthlyRepayment))
+print('This is found by first finding the prices of our two bonds, then creating a uniform cash stream using both bonds (Buying the second and selling the first), this is then known as \
+our bond portfolio, Our bond portfolio has a cash stream of $50 monthly per portfolio, which is simply the monthly coupon of the second bond minus the coupon of the first. \
+Then finally, we are able to obtain the quantity of bond portfolios we may purchase with the initial mortgage amount, the monthly mortgage repayment must be equal to the bond \
+portfolio\'s coupon multiplied by the quantity of portfolios we are able to purchase. If the mortgage repayment is lower, we would be able to make an arbitrage by purchasing the \
+bond portfolio and pocketing the difference between the coupon and the repayment. Alternatively, if the repayment is higher, we would choose to lend the mortgage and fund the initial \
+mortgage value by shorting the bond portfolio (buying bond 1 and selling bond 2) granting us a positive cash stream with zero initial outlay.')
+
+
+
+
+
+'''Q4'''
+#a
+
+Q4InitYieldFunc = lambda x : 0.04*np.log(x + 2.8)
+
+    #Setup Yield function consistent with question 4 parameters
+
+
+Q4InitYield, Q4InitBondCurve = [], []
+for i in range(0,11):
+    Q4InitYield.append(Q4InitYieldFunc(i))
+    Q4InitBondCurve.append(np.exp(Q4InitYieldFunc(i)*-i))
+    
+    #Create Yield and Bond vectors with initlal yield curve, note Bond vector does not integrate yield but rather evaluates it at each time point (unlike short rate model)
+    
+Q4ATMswap = (Q4InitBondCurve[5]-Q4InitBondCurve[10]) / (sum(Q4InitBondCurve[6:]))
+    
+    #Calculate ATM swap beginning at t = Tau5 and ending at t = Tau10 with t = 0 bonds
+
+print('Q4.a) The ATM interest rate swap from the initial yield curve with parameters (Current time: Tau0, Start date: Tau5, End date: Tau10) is:')
+print(Q4ATMswap)
+
+
+#b
+
+'''
+            Answer in doc, no calculation.
+'''
+
+
+
+#c
+
+Theta = lambda u, j :  ( (0.04 / (u + 2.8)) - (0.04 / ((u + 2.8)**2) ) + (0.02**2)* u ) * (j - u)
+
+    #setup Theta function (this is the Theta from the Ho-Lee model multiplied by (Tau - u) as is in the Ho-lee bond formula)
+
+Q4Tau3BondList = []
+for i in range(4,11):
+    Q4Tau3BondList.append ( np.exp(-integrate.quad(Theta, 3, i, args = (i) )[0]  +  ((0.02**2)/2) * ((( i - 3 )**3)/3)  -  ((i - 3) * 0.03) ) )
+    
+    #Create a list of bonds that begin at t = tau3 and expire at time []
+    
+
+Q4Tau3BondList = pd.Series(Q4Tau3BondList, index = range(4,11))
+
+    
+Q4Tau3ATMswap = (Q4Tau3BondList.iloc[5]-Q4Tau3BondList[10]) / (sum(Q4Tau3BondList[2:]))
+
+    #Calculate the ATM interest swap under Ho-Lee short rate dynamics for t = Tau3
+
+
+print('Q4.c) The ATM interest rate swap from the inital yield curve under the Ho-Lee short rate model with parameters (Current time: Tau3, Start date: Tau5, End date: Tau10) is:')
+print(Q4Tau3ATMswap)
+
+
+
+
+'''Q5'''
+
+
+
+def SpreadOptBondStocInt(Bond1, Bond2, K, SigmaSquared):
+    d1 = (np.log( Bond1 / Bond2*K ) + 0.5 * (SigmaSquared)) / (SigmaSquared**0.5)
+    d2 = (np.log( Bond1 / Bond2*K ) - 0.5 * (SigmaSquared)) / (SigmaSquared**0.5)
+    
+    return (Bond1 * norm.cdf(d1)) - (Bond2 * norm.cdf(d2))
+
+    #Create spread option function on bonds
+
+
+Sig = (0.075**2) * 0.75
+
+    #Setup Sigma term
+
+Q5SpreadOpt = SpreadOptBondStocInt(Q4InitBondCurve[1], Q4InitBondCurve[2], 1, Sig)
+
+    #Ebvaluate bond function with parameters: Bond1 is the Bond at t=0 expiring at t=1 and Bond2 is the Bond at t=0 expiring at t=2
+    
+print('Q5. The value of the spread option at t=0 is ' + Q5SpreadOpt.astype(str))
+print('The value of this option has been determined with parameters (K = 1, Tau = 0.75, Tau1 = 1, Tau2 = 2, Forward volatility = 0.075; initial bond curve as set out in Q4)) ')
+
